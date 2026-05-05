@@ -5,6 +5,7 @@
 import pandas as pd
 
 from pandas.core.arrays import ExtensionArray
+from thefuzz import fuzz
 
 
 def retrieve_data_company(company):
@@ -33,11 +34,28 @@ def retrieve_data_company(company):
                     # 2. Controlla se esiste almeno un True
                     if mask.any():
                         # 3. idxmax() trova l'indice della *prima* riga True
+                        campi_da_filtrare = ['Description',colonna_target]
+                        df_filtrato = df.loc[mask,campi_da_filtrare]
                         primo_indice = mask.idxmax()
+                        comp_he = df.loc[primo_indice, "Description"]
+                        re_fuzzy = fuzz.token_set_ratio(company, comp_he)
+                        risultato = df.loc[primo_indice, colonna_target]
+
+                        for indice_riga, riga in df_filtrato.iterrows():
+                            comp_he_temp = df_filtrato.loc[indice_riga,"Description"]
+                            re_fuzzy_temp = fuzz.token_set_ratio(company, comp_he_temp)
+                            if re_fuzzy_temp > re_fuzzy:
+                                comp_he = comp_he_temp
+                                re_fuzzy=re_fuzzy_temp
+                                risultato = df_filtrato.loc[indice_riga,colonna_target]
+
+
+
 
                         # 4. Estrai il valore con .loc[indice, colonna] (molto veloce)
-                        risultato = df.loc[primo_indice, colonna_target]
-                        df_selected = pd.DataFrame([{'Company': company, 'ASN': risultato}])
+
+
+                        df_selected = pd.DataFrame([{'Company': company, 'ASN': risultato, 'Company_HE': comp_he, 'Punteggio':re_fuzzy}])
 
                         df_selected.to_csv(nome_file_csv_raw, sep=',', mode='a', index=False, header=False,
                                            lineterminator='', doublequote=True)
@@ -52,7 +70,7 @@ def retrieve_data_company(company):
 dfAS = pd.read_csv("company.csv")
 #print(dfAS.values)
 
-intest = ['Company','ASN']
+intest = ['Company','ASN','Company_HE','Punteggio']
 df_intestazione = pd.DataFrame(columns=intest)
 nome_file_csv_raw = 'out_asn_company.csv'
 
